@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, useReducedMotion, AnimatePresence } from 'framer-motion';
 import { birthdayContent } from '@/config';
 import { easeCinema, fadeBlur, fadeOnly } from '@/lib/animation';
@@ -20,20 +20,18 @@ interface OnyerProps {
 export default function Onyer({ onComplete }: OnyerProps) {
   const reducedMotion = useReducedMotion();
   const [phase, setPhase] = useState<Phase>('actually');
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [hasPlaceholder, setHasPlaceholder] = useState(false);
+  const [playerReady, setPlayerReady] = useState(false);
 
-  // Check if the video URL is still a placeholder
   useEffect(() => {
     setHasPlaceholder(
-      birthdayContent.onyerVideo === '[ONYER_VIDEO_URL]' ||
-        birthdayContent.onyerVideo.trim() === ''
+      birthdayContent.onyerYoutubeId === '[ONYER_YOUTUBE_ID]' ||
+        birthdayContent.onyerYoutubeId.trim() === ''
     );
   }, []);
 
-  // Auto-advance through text phases
   useEffect(() => {
-    if (phase === 'player' || phase === 'okay') return; // wait for user / video
+    if (phase === 'player' || phase === 'okay') return;
     const t = window.setTimeout(() => {
       const order: Phase[] = ['actually', 'someone', 'player', 'okay', 'nowForMine'];
       const idx = order.indexOf(phase);
@@ -42,28 +40,25 @@ export default function Onyer({ onComplete }: OnyerProps) {
     return () => window.clearTimeout(t);
   }, [phase]);
 
-  // When video ends, move to "okay"
-  const handleVideoEnded = () => {
-    setPhase('okay');
-  };
-
   const handleSkipVideo = () => {
     setPhase('okay');
   };
 
-  // After "okay" shows, auto-advance to "nowForMine"
   useEffect(() => {
     if (phase !== 'okay') return;
     const t = window.setTimeout(() => setPhase('nowForMine'), 2000);
     return () => window.clearTimeout(t);
   }, [phase]);
 
-  // After "nowForMine", call onComplete
   useEffect(() => {
     if (phase !== 'nowForMine') return;
     const t = window.setTimeout(onComplete, PHASE_TIMINGS.nowForMine);
     return () => window.clearTimeout(t);
   }, [phase, onComplete]);
+
+  const embedUrl = hasPlaceholder
+    ? ''
+    : `https://www.youtube-nocookie.com/embed/${birthdayContent.onyerYoutubeId}?rel=0&modestbranding=1&playsinline=1`;
 
   return (
     <motion.div
@@ -100,7 +95,7 @@ export default function Onyer({ onComplete }: OnyerProps) {
         </motion.h2>
       )}
 
-      {/* Video player */}
+      {/* YouTube player */}
       {phase === 'player' && (
         <motion.div
           className="flex flex-col items-center gap-6 mt-12 w-full"
@@ -121,20 +116,40 @@ export default function Onyer({ onComplete }: OnyerProps) {
             style={{ aspectRatio: '16 / 9', borderRadius: '2px' }}
           >
             {!hasPlaceholder ? (
-              <video
-                ref={videoRef}
-                src={birthdayContent.onyerVideo}
-                controls
-                playsInline
-                preload="metadata"
-                onEnded={handleVideoEnded}
-                className="absolute inset-0 h-full w-full object-contain"
-                aria-label="Birthday greeting from Onyer"
-              />
+              <>
+                <motion.iframe
+                  key={embedUrl}
+                  src={embedUrl}
+                  title="Birthday greeting from Onyer"
+                  className="absolute inset-0 h-full w-full"
+                  style={{
+                    border: 'none',
+                    opacity: playerReady ? 1 : 0,
+                    transition: 'opacity 1.2s ease',
+                  }}
+                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  allowFullScreen
+                  onLoad={() => setPlayerReady(true)}
+                />
+                {!playerReady && (
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div
+                      className="border border-cream/20 rounded-full"
+                      style={{
+                        width: 28,
+                        height: 28,
+                        borderTopColor: 'rgba(232,228,220,0.6)',
+                        animation: 'spin 1.2s linear infinite',
+                      }}
+                    />
+                  </div>
+                )}
+              </>
             ) : (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4">
                 <p className="font-sans text-ink-400 text-center px-8" style={{ fontSize: '0.8rem' }}>
-                  Video from Onyer will appear here.
+                  Onyer's video will appear here once the YouTube ID is set.
                 </p>
                 <button
                   onClick={handleSkipVideo}
